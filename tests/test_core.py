@@ -81,6 +81,11 @@ class MetadataTests(unittest.TestCase):
         self.assertEqual("The Matrix", title)
         self.assertEqual("1999", year)
 
+    def test_long_yts_release_name_is_reduced_to_title(self):
+        title, year = title_from_filename("Masterplan.2026.720p.WEBRip.x264.AAC-[YTS.GG - YTS.BZ].mp4")
+        self.assertEqual("Masterplan", title)
+        self.assertEqual("2026", year)
+
     def test_omdb_response_is_normalized(self):
         value = MetadataService._normalize(
             {

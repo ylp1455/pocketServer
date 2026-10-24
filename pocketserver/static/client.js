@@ -3,7 +3,15 @@ const client$ = (selector) => document.querySelector(selector);
 const client$$ = (selector) => [...document.querySelectorAll(selector)];
 const clientEscape = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"})[char]);
 const mediaMetadata = (item) => item?.metadata || {};
-const mediaTitle = (item) => mediaMetadata(item).title || item?.lookup_title || item?.name || "Untitled";
+const cleanFilename = (value) => {
+  let title = String(value || "Untitled").replace(/\.[^.]+$/, "");
+  const year = title.match(/\b(?:19|20)\d{2}\b/);
+  if (year) title = title.slice(0, year.index);
+  title = title.replace(/\b(?:480p|720p|1080p|2160p|4k|uhd|bluray|blu-ray|brrip|webrip|web-dl|hdrip|dvdrip|xvid|x264|x265|h264|h265|hevc|aac|dts|proper|repack|extended|remastered)\b.*$/i, "");
+  title = title.replace(/[._\-\[\]()]+/g, " ").replace(/\s+/g, " ").trim();
+  return title || "Untitled";
+};
+const mediaTitle = (item) => mediaMetadata(item).title || item?.lookup_title || cleanFilename(item?.filename || item?.name);
 const mediaType = (item) => (mediaMetadata(item).type || "movie").toLowerCase();
 
 try { clientState.myList = new Set(JSON.parse(localStorage.getItem("pocket-my-list") || "[]")); } catch (error) {}
@@ -49,8 +57,8 @@ function renderLibrary() {
   client$("#libraryCount").textContent = `${items.length} title${items.length === 1 ? "" : "s"}`;
   const single = clientState.filter !== "all";
   client$("#recentShelf").hidden = single;
-  client$("#movieShelf").hidden = single && clientState.filter !== "movie";
-  client$("#seriesShelf").hidden = single && clientState.filter !== "series";
+  client$("#movieShelf").hidden = (single && clientState.filter !== "movie") || (!single && movies.length === 0);
+  client$("#seriesShelf").hidden = (single && clientState.filter !== "series") || (!single && series.length === 0);
   client$("#listShelf").hidden = clientState.filter !== "list";
 }
 
