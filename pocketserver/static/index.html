@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f7fb" id="themeColor">
+  <title>PocketServer</title>
+  <script>try{document.documentElement.dataset.theme=localStorage.getItem("pocket-theme")||"light"}catch(e){}</script>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <section class="auth-screen" id="loginScreen">
+    <form class="login-card" id="loginForm">
+      <div class="brand login-brand"><span class="brand-mark">P</span><span>PocketServer</span></div>
+      <p class="eyebrow">SERVER ADMINISTRATION</p>
+      <h1>Welcome back</h1>
+      <p class="login-copy">Sign in to manage downloads, scheduling, storage, and security.</p>
+      <label>Username<input class="search full" id="loginUsername" value="admin" autocomplete="username" required></label>
+      <label>Password<input class="search full" id="loginPassword" type="password" autocomplete="current-password" required></label>
+      <p class="form-error" id="loginError"></p>
+      <button class="primary login-button" type="submit">Sign in</button>
+      <a class="client-link" href="/">← Return to media library</a>
+    </form>
+  </section>
+
+  <div class="shell hidden" id="adminShell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand"><span class="brand-mark">P</span><span>PocketServer</span></div>
+      <nav>
+        <button class="nav-item active" data-view="overview"><span>⌂</span>Overview</button>
+        <button class="nav-item" data-view="media"><span>▶</span>Media</button>
+        <button class="nav-item" data-view="downloads"><span>↓</span>Downloads</button>
+        <button class="nav-item" data-view="system"><span>⚙</span>System</button>
+      </nav>
+      <div class="sidebar-foot">
+        <span class="status-dot" id="engineDot"></span>
+        <span id="engineText">Checking aria2…</span>
+      </div>
+    </aside>
+
+    <main>
+      <header>
+        <button class="menu-button" id="menuButton" aria-label="Open menu">☰</button>
+        <div><p class="eyebrow" id="pageEyebrow">YOUR HOME SERVER</p><h1 id="pageTitle">Overview</h1></div>
+        <div class="header-actions">
+          <div class="header-stats"><span id="headerDown">↓ 0 B/s</span><span id="headerUp">↑ 0 B/s</span></div>
+          <a class="header-link" href="/" title="Open viewer">View library</a>
+          <button class="theme-button" id="themeToggle" aria-label="Switch to dark mode" title="Switch theme">☾</button>
+          <button class="theme-button" id="logoutButton" aria-label="Sign out" title="Sign out">↪</button>
+        </div>
+      </header>
+
+      <section class="view active" id="view-overview">
+        <div class="security-warning hidden" id="passwordWarning"><strong>Change the default password.</strong><span>Your admin account still uses its initial password.</span><button class="text-button" data-go="system">Change now</button></div>
+        <div class="hero-card">
+          <div><span class="pill success">● ONLINE</span><h2 id="welcomeTitle">PocketServer is ready</h2><p>Stream your library and manage downloads from any device on this network.</p></div>
+          <button class="primary" data-go="downloads">Add download</button>
+        </div>
+        <div class="metric-grid">
+          <article class="metric"><span class="metric-icon purple">↯</span><div><p>Active downloads</p><strong id="activeCount">0</strong></div></article>
+          <article class="metric"><span class="metric-icon blue">▰</span><div><p>Storage used</p><strong id="storageValue">—</strong></div></article>
+          <article class="metric"><span class="metric-icon green">▶</span><div><p>Media files</p><strong id="mediaCount">0</strong></div></article>
+          <article class="metric"><span class="metric-icon orange">◷</span><div><p>Uptime</p><strong id="uptimeValue">—</strong></div></article>
+        </div>
+        <div class="split-grid">
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">DEVICE</p><h3>System health</h3></div><span class="pill success">Healthy</span></div><div id="healthRows" class="health-rows"></div></article>
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">ACTIVITY</p><h3>Recent downloads</h3></div><button class="text-button" data-go="downloads">View all</button></div><div id="recentDownloads" class="empty-state">No downloads yet.</div></article>
+        </div>
+      </section>
+
+      <section class="view" id="view-media">
+        <div class="toolbar"><div><p class="eyebrow">YOUR COLLECTION</p><h2>Media library</h2></div><input id="mediaSearch" class="search" type="search" placeholder="Search media…"></div>
+        <div class="media-grid" id="mediaGrid"></div>
+      </section>
+
+      <section class="view" id="view-downloads">
+        <div class="toolbar"><div><p class="eyebrow">ARIA2 DOWNLOAD ENGINE</p><h2>Downloads</h2></div><button class="primary" id="openAdd">＋ Add</button></div>
+        <div class="notice hidden" id="ariaNotice">aria2c is not installed. Install aria2, then restart PocketServer to enable downloads.</div>
+        <article class="panel schedule-panel">
+          <div class="schedule-copy">
+            <div class="schedule-title"><span class="schedule-icon">◷</span><div><h3>Download schedule</h3><p>Only download during this time using the server device's local clock.</p></div></div>
+            <span class="pill" id="scheduleState">Disabled</span>
+          </div>
+          <form class="schedule-form" id="scheduleForm">
+            <label class="switch-label"><span>Enable schedule</span><span class="switch"><input type="checkbox" id="scheduleEnabled"><span class="switch-track"></span></span></label>
+            <label>Start time<input type="time" id="scheduleStart" value="00:00" required></label>
+            <span class="time-arrow">→</span>
+            <label>Stop time<input type="time" id="scheduleEnd" value="06:00" required></label>
+            <button type="submit" class="primary compact">Save schedule</button>
+          </form>
+        </article>
+        <article class="panel download-panel">
+          <div class="filter-row"><input id="downloadSearch" class="search" type="search" placeholder="Filter by name…"><span class="schedule" id="scheduleText">Schedule off</span></div>
+          <div class="download-list" id="downloadList"></div>
+        </article>
+      </section>
+
+      <section class="view" id="view-system">
+        <div class="toolbar"><div><p class="eyebrow">DEVICE STATUS</p><h2>System information</h2></div></div>
+        <div class="system-grid" id="systemGrid"></div>
+        <article class="panel security-panel">
+          <div class="panel-head"><div><p class="eyebrow">ADMIN ACCOUNT</p><h3>Change password</h3></div><span class="pill" id="accountName">admin</span></div>
+          <form class="password-form" id="passwordForm">
+            <label>Current password<input class="search full" type="password" id="currentPassword" autocomplete="current-password" required></label>
+            <label>New password<input class="search full" type="password" id="newPassword" autocomplete="new-password" minlength="8" required></label>
+            <label>Confirm new password<input class="search full" type="password" id="confirmPassword" autocomplete="new-password" minlength="8" required></label>
+            <p class="form-error" id="passwordError"></p>
+            <button class="primary" type="submit">Update password</button>
+          </form>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="addDialog">
+    <form method="dialog" class="dialog-card" id="addForm">
+      <div class="panel-head"><div><p class="eyebrow">NEW DOWNLOAD</p><h3>Add to queue</h3></div><button class="icon-button" value="cancel" aria-label="Close">×</button></div>
+      <label>URL or magnet link<input class="search full" id="downloadUri" placeholder="https://… or magnet:?xt=…"></label>
+      <div class="or"><span>or</span></div>
+      <label class="file-drop">Choose a .torrent file<input id="torrentFile" type="file" accept=".torrent,application/x-bittorrent"></label>
+      <p class="form-error" id="addError"></p>
+      <div class="dialog-actions"><button value="cancel" class="secondary">Cancel</button><button type="button" class="primary" id="submitDownload">Add download</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="playerDialog" class="player-dialog">
+    <div class="player-shell"><button class="player-close" id="closePlayer">×</button><video id="videoPlayer" controls playsinline></video><h3 id="playerTitle"></h3></div>
+  </dialog>
+
+  <div class="toast" id="toast"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

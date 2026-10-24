@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f8fc">
+  <title>PocketServer · Media</title>
+  <link rel="stylesheet" href="/client.css">
+</head>
+<body>
+  <header class="client-header">
+    <a class="client-brand" href="/"><span>P</span><strong>PocketServer</strong></a>
+    <nav><a class="active" href="#library">Library</a><a href="/admin">Admin</a></nav>
+  </header>
+
+  <main>
+    <section class="client-hero">
+      <div><p class="kicker">YOUR PERSONAL MEDIA</p><h1>Everything you saved.<br>Ready to watch.</h1><p>Stream directly from your PocketServer to any browser on your home network.</p></div>
+      <div class="hero-orb"><span>▶</span></div>
+    </section>
+
+    <section class="library" id="library">
+      <div class="library-head"><div><p class="kicker">ON THIS SERVER</p><h2>Media library</h2></div><label class="client-search"><span>⌕</span><input id="clientSearch" type="search" placeholder="Search your library"></label></div>
+      <div class="client-grid" id="clientGrid"><div class="client-empty">Loading your library…</div></div>
+    </section>
+  </main>
+
+  <dialog id="clientPlayer">
+    <div class="client-player-shell"><button id="clientPlayerClose" aria-label="Close">×</button><video id="clientVideo" controls playsinline></video><div><h3 id="clientPlayerTitle"></h3><p>Streaming directly from PocketServer</p></div></div>
+  </dialog>
+
+  <footer><span>PocketServer</span><a href="/admin">Server administration</a></footer>
+  <script src="/client.js"></script>
+</body>
+</html>
