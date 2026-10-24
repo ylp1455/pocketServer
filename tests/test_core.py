@@ -7,6 +7,7 @@ from pocketserver.aria2 import Aria2Client
 from pocketserver.auth import SessionStore, new_password_record, verify_password
 from pocketserver.config import load_config
 from pocketserver.media import safe_media_path, scan_media
+from pocketserver.metadata import MetadataService, title_from_filename
 
 
 class ConfigTests(unittest.TestCase):
@@ -72,6 +73,31 @@ class AuthenticationTests(unittest.TestCase):
         sessions.keep_only(current.token)
         self.assertIsNotNone(sessions.get(current.token))
         self.assertIsNone(sessions.get(other.token))
+
+
+class MetadataTests(unittest.TestCase):
+    def test_release_filename_is_cleaned_for_lookup(self):
+        title, year = title_from_filename("The.Matrix.1999.1080p.BluRay.x265.mkv")
+        self.assertEqual("The Matrix", title)
+        self.assertEqual("1999", year)
+
+    def test_omdb_response_is_normalized(self):
+        value = MetadataService._normalize(
+            {
+                "Title": "Example",
+                "Year": "2025",
+                "Genre": "Drama, Mystery",
+                "Actors": "Actor One, Actor Two",
+                "Plot": "A test plot.",
+                "imdbID": "tt1234567",
+                "imdbRating": "8.1",
+                "Poster": "https://example.com/poster.jpg",
+                "Type": "movie",
+            }
+        )
+        self.assertEqual(["Drama", "Mystery"], value["genres"])
+        self.assertEqual(["Actor One", "Actor Two"], value["actors"])
+        self.assertEqual("tt1234567", value["imdb_id"])
 
 
 if __name__ == "__main__":

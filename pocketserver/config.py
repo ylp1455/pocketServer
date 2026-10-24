@@ -19,6 +19,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "seed_time_minutes": 0,
     },
     "auth": {},
+    "metadata": {"enabled": False, "provider": "omdb", "api_key": ""},
 }
 
 

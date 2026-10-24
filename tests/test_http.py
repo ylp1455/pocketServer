@@ -30,6 +30,7 @@ class AdminHttpTests(unittest.TestCase):
         self.httpd.shutdown()
         self.httpd.server_close()
         self.thread.join(timeout=2)
+        self.app.metadata.close()
         shutil.rmtree(self.data_dir)
 
     def request(self, path, method="GET", payload=None, headers=None):
@@ -44,7 +45,7 @@ class AdminHttpTests(unittest.TestCase):
 
     def test_client_admin_and_password_change_flow(self):
         with self.request("/") as response:
-            self.assertIn(b"Media library", response.read())
+            self.assertIn(b"Recently added", response.read())
         with self.request("/admin") as response:
             self.assertIn(b"SERVER ADMINISTRATION", response.read())
 
@@ -63,6 +64,16 @@ class AdminHttpTests(unittest.TestCase):
         self.assertTrue(login["must_change_password"])
 
         auth_headers = {"Cookie": cookie, "X-CSRF-Token": login["csrf_token"]}
+        with self.request(
+            "/api/settings/metadata",
+            method="POST",
+            payload={"enabled": True, "api_key": "test-key"},
+            headers=auth_headers,
+        ) as response:
+            metadata = json.load(response)["metadata"]
+        self.assertTrue(metadata["enabled"])
+        self.assertTrue(metadata["configured"])
+
         with self.request(
             "/api/auth/password",
             method="POST",

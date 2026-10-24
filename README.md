@@ -18,6 +18,7 @@ client inside the Python process.
 - Optional overnight download window
 - Live storage, memory, uptime, and download-speed status
 - Separate media client and password-protected administration dashboard
+- Optional OMDb metadata with locally cached posters, plots, actors, and IMDb ratings
 - No Python package dependencies
 
 PocketServer does not transcode video. The viewing device decodes the original
@@ -83,6 +84,20 @@ Important settings include:
 - `download_window.end`: end time in 24-hour `HH:MM` format
 - `aria2.seed_time_minutes`: how long completed torrents seed (`0` disables)
 - `minimum_free_mb`: refuse new downloads when storage is below this value
+
+### Movie and series metadata
+
+Open **Admin → System → IMDb metadata through OMDb**, enter an OMDb API key,
+enable automatic metadata, and save. PocketServer extracts a title and year
+from each video filename, retrieves its poster, plot, actors, genres, runtime,
+and IMDb rating, then caches the result on the server. You can also provide the
+key without saving it in `config.json`:
+
+```sh
+OMDB_API_KEY=your-key bash scripts/start-termux.sh
+```
+
+Clear **Refresh all metadata** after renaming files or correcting a match.
 
 The web server is designed for a trusted home network. Do not expose it
 directly to the public internet. Administration requires authentication, but

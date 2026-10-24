@@ -94,6 +94,11 @@ function renderStatus() {
   const scheduleState = $("#scheduleState");
   scheduleState.classList.toggle("success", schedule.enabled && s.schedule_active_now && s.aria2_available);
   scheduleState.textContent = !schedule.enabled ? "Disabled" : !s.aria2_available ? "Engine offline" : s.schedule_active_now ? "Downloading now" : "Waiting for start";
+  const metadata = s.metadata || {};
+  $("#metadataEnabled").checked = Boolean(metadata.enabled);
+  const metadataStatus = $("#metadataStatus");
+  metadataStatus.classList.toggle("success", Boolean(metadata.enabled && metadata.configured));
+  metadataStatus.textContent = !metadata.configured ? "API key needed" : metadata.enabled ? `${metadata.cached_titles || 0} titles cached` : "Disabled";
   $("#systemGrid").innerHTML = `
     <article class="system-card"><h3>Device</h3><div class="info-row"><span>Hostname</span><strong>${escapeHtml(s.hostname)}</strong></div><div class="info-row"><span>Platform</span><strong>${escapeHtml(s.platform)}</strong></div><div class="info-row"><span>Python</span><strong>${escapeHtml(s.python)}</strong></div><div class="info-row"><span>Uptime</span><strong>${duration(s.uptime_seconds)}</strong></div></article>
     <article class="system-card"><h3>Storage</h3><div class="info-row"><span>Total</span><strong>${bytes(s.disk.total)}</strong></div><div class="info-row"><span>Used</span><strong>${bytes(s.disk.used)}</strong></div><div class="info-row"><span>Available</span><strong>${bytes(s.disk.free)}</strong></div></article>
@@ -207,6 +212,29 @@ async function changePassword(event) {
   } catch (e) { error.textContent = e.message; }
 }
 
+async function saveMetadata(event) {
+  event.preventDefault();
+  const error = $("#metadataError"); error.textContent = "";
+  try {
+    await api("/api/settings/metadata", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({enabled: $("#metadataEnabled").checked, api_key: $("#metadataApiKey").value.trim()}),
+    });
+    $("#metadataApiKey").value = "";
+    toast("Metadata settings saved");
+    await refresh();
+  } catch (e) { error.textContent = e.message; }
+}
+
+async function refreshAllMetadata() {
+  try {
+    await api("/api/metadata/refresh", {method: "POST"});
+    toast("Metadata cache cleared; the library will refresh in the background");
+    await refresh();
+  } catch (e) { toast(e.message); }
+}
+
 async function initialize() {
   try {
     const session = await api("/api/auth/session");
@@ -229,6 +257,8 @@ $("#themeToggle").addEventListener("click", () => applyTheme(document.documentEl
 $("#logoutButton").addEventListener("click", logout);
 $("#loginForm").addEventListener("submit", login);
 $("#passwordForm").addEventListener("submit", changePassword);
+$("#metadataForm").addEventListener("submit", saveMetadata);
+$("#refreshMetadata").addEventListener("click", refreshAllMetadata);
 $("#openAdd").addEventListener("click", () => $("#addDialog").showModal());
 $("#submitDownload").addEventListener("click", addDownload);
 $("#scheduleForm").addEventListener("submit", saveSchedule);

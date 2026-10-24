@@ -23,6 +23,7 @@ from .aria2 import Aria2Client, Aria2Error
 from .auth import AdminSession, SessionStore, new_password_record, verify_password
 from .config import load_config, save_config
 from .media import chunks, safe_media_path, scan_media
+from .metadata import MetadataService, SAFE_IMDB_ID
 
 
 class PocketServer:
@@ -35,6 +36,7 @@ class PocketServer:
         self.host = host
         self.port = port
         self.aria2 = Aria2Client(self.data_dir, self.config)
+        self.metadata = MetadataService(self.data_dir, self.config)
         self.sessions = SessionStore()
         self.static_dir = Path(__file__).with_name("static")
         self.httpd: ThreadingHTTPServer | None = None
@@ -68,6 +70,7 @@ class PocketServer:
             print("\nStopping PocketServer...")
         finally:
             self.aria2.stop()
+            self.metadata.close()
             self.httpd.server_close()
 
 
@@ -92,6 +95,8 @@ class PocketRequestHandler(BaseHTTPRequestHandler):
         elif parsed.path == "/media":
             query = urllib.parse.parse_qs(parsed.query)
             self._stream_media(query.get("path", [""])[0])
+        elif parsed.path.startswith("/poster/"):
+            self._serve_poster(parsed.path.removeprefix("/poster/").removesuffix(".jpg"))
         else:
             self._static(parsed.path)
 
@@ -145,6 +150,24 @@ class PocketRequestHandler(BaseHTTPRequestHandler):
                 save_config(self.server_app.data_dir, self.server_app.config)
                 self.server_app.aria2.schedule_changed()
                 self._json({"schedule": window, "active_now": self.server_app.aria2.schedule_active_now()})
+            elif parsed.path == "/api/settings/metadata":
+                payload = self._json_body()
+                enabled = bool(payload.get("enabled", False))
+                supplied_key = str(payload.get("api_key", "")).strip()
+                settings = self.server_app.config.setdefault("metadata", {})
+                if supplied_key:
+                    if len(supplied_key) > 128:
+                        raise ValueError("The OMDb API key is too long.")
+                    settings["api_key"] = supplied_key
+                if enabled and not (settings.get("api_key") or os.environ.get("OMDB_API_KEY")):
+                    raise ValueError("Enter an OMDb API key before enabling metadata.")
+                settings["enabled"] = enabled
+                settings["provider"] = "omdb"
+                save_config(self.server_app.data_dir, self.server_app.config)
+                self._json({"metadata": self.server_app.metadata.stats()})
+            elif parsed.path == "/api/metadata/refresh":
+                self.server_app.metadata.refresh()
+                self._json({"ok": True})
             elif parsed.path.startswith("/api/downloads/"):
                 parts = parsed.path.strip("/").split("/")
                 if len(parts) != 4:
@@ -268,6 +291,7 @@ class PocketRequestHandler(BaseHTTPRequestHandler):
                 "waiting_downloads": int(stats.get("numWaiting", 0)),
                 "schedule": self.server_app.config["download_window"],
                 "schedule_active_now": self.server_app.aria2.schedule_active_now(),
+                "metadata": self.server_app.metadata.stats(),
             }
         )
 
@@ -282,9 +306,26 @@ class PocketRequestHandler(BaseHTTPRequestHandler):
 
     def _media_list(self) -> None:
         items = scan_media(*self.server_app.media_roots)
+        self.server_app.metadata.enrich(items)
         for item in items:
             item["url"] = "/media?" + urllib.parse.urlencode({"path": item.pop("path")})
         self._json({"items": items})
+
+    def _serve_poster(self, imdb_id: str) -> None:
+        if not SAFE_IMDB_ID.fullmatch(imdb_id):
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        path = self.server_app.metadata.poster_path(imdb_id)
+        if path is None:
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        data = path.read_bytes()
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "image/jpeg")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "public, max-age=604800")
+        self.end_headers()
+        self.wfile.write(data)
 
     def _stream_media(self, encoded_path: str) -> None:
         path = safe_media_path(encoded_path, self.server_app.media_roots)

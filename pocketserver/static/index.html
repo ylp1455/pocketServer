@@ -108,6 +108,16 @@
             <button class="primary" type="submit">Update password</button>
           </form>
         </article>
+        <article class="panel security-panel">
+          <div class="panel-head"><div><p class="eyebrow">MEDIA INFORMATION</p><h3>IMDb metadata through OMDb</h3></div><span class="pill" id="metadataStatus">Not configured</span></div>
+          <form class="metadata-form" id="metadataForm">
+            <div class="metadata-copy"><p>Add an OMDb API key to identify videos by filename and cache their posters, descriptions, actors, genres, runtime, year, and IMDb rating.</p><a href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noreferrer">Get an OMDb API key ↗</a></div>
+            <label class="switch-label"><span>Fetch metadata automatically</span><span class="switch"><input type="checkbox" id="metadataEnabled"><span class="switch-track"></span></span></label>
+            <label>OMDb API key<input class="search full" type="password" id="metadataApiKey" autocomplete="off" placeholder="Leave blank to keep the saved key"></label>
+            <p class="form-error" id="metadataError"></p>
+            <div class="metadata-actions"><button class="secondary" type="button" id="refreshMetadata">Refresh all metadata</button><button class="primary" type="submit">Save metadata settings</button></div>
+          </form>
+        </article>
       </section>
     </main>
   </div>
