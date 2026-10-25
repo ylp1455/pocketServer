@@ -59,9 +59,10 @@ function renderLibrary() {
   renderRow("#listRow", saved, "Your list is empty.");
   client$("#libraryCount").textContent = `${items.length} title${items.length === 1 ? "" : "s"}`;
   const single = clientState.filter !== "all";
+  const recentAlreadyShowsEverything = !single && items.length > 0 && items.length <= 12;
   client$("#recentShelf").hidden = single;
-  client$("#movieShelf").hidden = (single && clientState.filter !== "movie") || (!single && movies.length === 0);
-  client$("#seriesShelf").hidden = (single && clientState.filter !== "series") || (!single && series.length === 0);
+  client$("#movieShelf").hidden = (single && clientState.filter !== "movie") || (!single && (movies.length === 0 || (recentAlreadyShowsEverything && movies.length === items.length)));
+  client$("#seriesShelf").hidden = (single && clientState.filter !== "series") || (!single && (series.length === 0 || (recentAlreadyShowsEverything && series.length === items.length)));
   client$("#listShelf").hidden = clientState.filter !== "list";
 }
 
