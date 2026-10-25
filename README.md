@@ -19,6 +19,7 @@ client inside the Python process.
 - Live storage, memory, uptime, and download-speed status
 - Separate media client and password-protected administration dashboard
 - Optional OMDb metadata with locally cached posters, plots, actors, and IMDb ratings
+- Viewer movie/series requests with an administrator approval queue
 - No Python package dependencies
 
 PocketServer does not transcode video. The viewing device decodes the original
@@ -98,6 +99,13 @@ OMDB_API_KEY=your-key bash scripts/start-termux.sh
 ```
 
 Clear **Refresh all metadata** after renaming files or correcting a match.
+
+### Viewer requests
+
+Viewers can press **Request** in the media client and ask for a movie or series
+without an administrator login. The administrator can open **Admin → Requests**
+to review each request and mark it pending, approved, available, or declined.
+Requests are stored in `requests.json` inside the PocketServer data directory.
 
 The web server is designed for a trusted home network. Do not expose it
 directly to the public internet. Administration requires authentication, but

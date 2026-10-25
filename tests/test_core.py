@@ -9,6 +9,7 @@ from pocketserver.auth import SessionStore, new_password_record, verify_password
 from pocketserver.config import load_config
 from pocketserver.media import safe_media_path, scan_media
 from pocketserver.metadata import MetadataService, title_from_filename
+from pocketserver.requests import MediaRequestStore
 
 
 class ConfigTests(unittest.TestCase):
@@ -74,6 +75,34 @@ class AuthenticationTests(unittest.TestCase):
         sessions.keep_only(current.token)
         self.assertIsNotNone(sessions.get(current.token))
         self.assertIsNone(sessions.get(other.token))
+
+
+class MediaRequestTests(unittest.TestCase):
+    def test_request_lifecycle_is_persisted_and_duplicates_are_blocked(self):
+        folder = Path(__file__).parent / ".tmp" / uuid.uuid4().hex
+        folder.mkdir(parents=True)
+        try:
+            store = MediaRequestStore(folder)
+            item = store.create(
+                {
+                    "title": "The Matrix",
+                    "type": "movie",
+                    "year": "1999",
+                    "requested_by": "Viewer",
+                    "notes": "4K if available",
+                }
+            )
+            self.assertEqual("pending", item["status"])
+            self.assertEqual(1, store.pending_count())
+            with self.assertRaisesRegex(ValueError, "already been requested"):
+                store.create({"title": "the matrix", "type": "movie", "year": "1999"})
+
+            updated = store.set_status(item["id"], "available")
+            self.assertEqual("available", updated["status"])
+            self.assertEqual(0, store.pending_count())
+            self.assertEqual("available", MediaRequestStore(folder).all()[0]["status"])
+        finally:
+            shutil.rmtree(folder)
 
 
 class MetadataTests(unittest.TestCase):

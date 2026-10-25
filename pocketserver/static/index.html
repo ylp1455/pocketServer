@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f4f7fb" id="themeColor">
   <title>PocketServer</title>
   <script>try{document.documentElement.dataset.theme=localStorage.getItem("pocket-theme")||"light"}catch(e){}</script>
-  <link rel="stylesheet" href="/styles.css?v=0.3.2">
+  <link rel="stylesheet" href="/styles.css?v=0.4.1">
 </head>
 <body>
   <section class="auth-screen" id="loginScreen">
@@ -30,6 +30,7 @@
         <button class="nav-item active" data-view="overview"><span>⌂</span>Overview</button>
         <button class="nav-item" data-view="media"><span>▶</span>Media</button>
         <button class="nav-item" data-view="downloads"><span>↓</span>Downloads</button>
+        <button class="nav-item" data-view="requests"><span>✦</span>Requests <b class="nav-badge hidden" id="requestBadge">0</b></button>
         <button class="nav-item" data-view="system"><span>⚙</span>System</button>
       </nav>
       <div class="sidebar-foot">
@@ -95,6 +96,11 @@
         </article>
       </section>
 
+      <section class="view" id="view-requests">
+        <div class="toolbar"><div><p class="eyebrow">VIEWER REQUESTS</p><h2>Requested media</h2></div><span class="pill" id="requestCount">0 requests</span></div>
+        <div class="request-admin-list" id="requestAdminList"><div class="empty-state">No requests yet.</div></div>
+      </section>
+
       <section class="view" id="view-system">
         <div class="toolbar"><div><p class="eyebrow">DEVICE STATUS</p><h2>System information</h2></div></div>
         <div class="system-grid" id="systemGrid"></div>
@@ -138,6 +144,6 @@
   </dialog>
 
   <div class="toast" id="toast"></div>
-  <script src="/app.js?v=0.3.2"></script>
+  <script src="/app.js?v=0.4.1"></script>
 </body>
 </html>

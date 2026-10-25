@@ -1,3 +1,3 @@
 """PocketServer: a small media and download server for low-powered devices."""
 
-__version__ = "0.3.2"
+__version__ = "0.4.1"

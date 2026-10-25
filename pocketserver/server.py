@@ -24,6 +24,7 @@ from .auth import AdminSession, SessionStore, new_password_record, verify_passwo
 from .config import load_config, save_config
 from .media import chunks, safe_media_path, scan_media
 from .metadata import MetadataService, SAFE_IMDB_ID
+from .requests import MediaRequestStore
 
 
 class PocketServer:
@@ -37,6 +38,7 @@ class PocketServer:
         self.port = port
         self.aria2 = Aria2Client(self.data_dir, self.config)
         self.metadata = MetadataService(self.data_dir, self.config)
+        self.requests = MediaRequestStore(self.data_dir)
         self.sessions = SessionStore()
         self.static_dir = Path(__file__).with_name("static")
         self.httpd: ThreadingHTTPServer | None = None
@@ -90,6 +92,10 @@ class PocketRequestHandler(BaseHTTPRequestHandler):
             if not self._require_admin():
                 return
             self._downloads()
+        elif parsed.path == "/api/requests":
+            if not self._require_admin():
+                return
+            self._json({"items": self.server_app.requests.all()})
         elif parsed.path == "/api/media":
             self._media_list()
         elif parsed.path == "/media":
@@ -105,6 +111,10 @@ class PocketRequestHandler(BaseHTTPRequestHandler):
         try:
             if parsed.path == "/api/auth/login":
                 self._login()
+                return
+            if parsed.path == "/api/requests":
+                item = self.server_app.requests.create(self._json_body())
+                self._json({"request": item}, HTTPStatus.CREATED)
                 return
             session = self._require_admin(csrf=True)
             if not session:
@@ -174,6 +184,13 @@ class PocketRequestHandler(BaseHTTPRequestHandler):
             elif parsed.path == "/api/metadata/refresh":
                 self.server_app.metadata.refresh()
                 self._json({"ok": True})
+            elif parsed.path.startswith("/api/requests/"):
+                parts = parsed.path.strip("/").split("/")
+                if len(parts) != 4 or parts[3] != "status":
+                    raise ValueError("Invalid request action URL.")
+                payload = self._json_body()
+                item = self.server_app.requests.set_status(parts[2], str(payload.get("status", "")))
+                self._json({"request": item})
             elif parsed.path.startswith("/api/downloads/"):
                 parts = parsed.path.strip("/").split("/")
                 if len(parts) != 4:
@@ -298,6 +315,7 @@ class PocketRequestHandler(BaseHTTPRequestHandler):
                 "schedule": self.server_app.config["download_window"],
                 "schedule_active_now": self.server_app.aria2.schedule_active_now(),
                 "metadata": self.server_app.metadata.stats(),
+                "pending_requests": self.server_app.requests.pending_count(),
             }
         )
 

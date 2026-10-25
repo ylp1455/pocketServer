@@ -118,6 +118,34 @@ function toggleMyList(item) {
   if (client$("#detailsDialog").open) openDetails(item);
 }
 
+async function submitMediaRequest(event) {
+  event.preventDefault();
+  const message = client$("#requestMessage");
+  message.className = "request-message";
+  message.textContent = "Sending…";
+  try {
+    const response = await fetch("/api/requests", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        title: client$("#requestTitle").value.trim(),
+        type: client$("#requestType").value,
+        year: client$("#requestYear").value.trim(),
+        requested_by: client$("#requestName").value.trim(),
+        notes: client$("#requestNotes").value.trim(),
+      }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`);
+    client$("#requestForm").reset();
+    message.classList.add("success");
+    message.textContent = `“${body.request.title}” was sent to the administrator.`;
+  } catch (error) {
+    message.classList.add("error");
+    message.textContent = error.message;
+  }
+}
+
 async function loadClientMedia() {
   try {
     const response = await fetch("/api/media", {cache: "no-store"});
@@ -138,9 +166,12 @@ document.addEventListener("click", (event) => {
   const filter = event.target.closest("[data-library-filter]");
   if (filter) { clientState.filter = filter.dataset.libraryFilter; client$$('[data-library-filter]').forEach((button) => button.classList.toggle("active", button === filter)); renderLibrary(); document.querySelector("#library").scrollIntoView({behavior: "smooth"}); }
   if (event.target.closest("[data-close-details]")) client$("#detailsDialog").close();
+  if (event.target.closest("[data-close-request]")) client$("#requestDialog").close();
 });
 client$("#clientSearch").addEventListener("input", renderLibrary);
 client$("#clientThemeToggle").addEventListener("click", () => applyClientTheme(document.documentElement.dataset.clientTheme === "dark" ? "light" : "dark"));
+client$("#openRequest").addEventListener("click", () => { client$("#requestMessage").textContent = ""; client$("#requestDialog").showModal(); client$("#requestTitle").focus(); });
+client$("#requestForm").addEventListener("submit", submitMediaRequest);
 client$("#featurePlay").addEventListener("click", () => playMedia(clientState.featured));
 client$("#featureDetails").addEventListener("click", () => openDetails(clientState.featured));
 client$("#featureList").addEventListener("click", () => toggleMyList(clientState.featured));

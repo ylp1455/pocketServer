@@ -1,4 +1,4 @@
-const state = { status: null, downloads: [], media: [], scheduleDirty: false, authenticated: false, csrfToken: "" };
+const state = { status: null, downloads: [], media: [], requests: [], scheduleDirty: false, authenticated: false, csrfToken: "" };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
@@ -60,7 +60,7 @@ function showAdmin(session) {
 function showView(name) {
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === `view-${name}`));
   $$(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.view === name));
-  const titles = {overview: ["YOUR HOME SERVER", "Overview"], media: ["STREAM & WATCH", "Media"], downloads: ["QUEUE & SCHEDULE", "Downloads"], system: ["HEALTH & STORAGE", "System"]};
+  const titles = {overview: ["YOUR HOME SERVER", "Overview"], media: ["STREAM & WATCH", "Media"], downloads: ["QUEUE & SCHEDULE", "Downloads"], requests: ["VIEWER WISHLIST", "Requests"], system: ["HEALTH & STORAGE", "System"]};
   $("#pageEyebrow").textContent = titles[name][0];
   $("#pageTitle").textContent = titles[name][1];
   $("#sidebar").classList.remove("open");
@@ -135,12 +135,26 @@ function renderMedia() {
   $("#mediaGrid").innerHTML = items.map((item) => `<button class="media-card" data-media-url="${escapeHtml(item.url)}" data-media-name="${escapeHtml(item.name)}"><div class="poster"></div><h3>${escapeHtml(item.name)}</h3><p>${bytes(item.size)} · ${escapeHtml(item.filename.split(".").pop().toUpperCase())}</p></button>`).join("") || '<div class="empty-state">No videos found. Put video files in the media or downloads folder.</div>';
 }
 
+function renderRequests() {
+  const statuses = ["pending", "approved", "available", "declined"];
+  const pending = state.requests.filter((item) => item.status === "pending").length;
+  $("#requestCount").textContent = `${state.requests.length} request${state.requests.length === 1 ? "" : "s"}`;
+  $("#requestBadge").textContent = pending;
+  $("#requestBadge").classList.toggle("hidden", pending === 0);
+  $("#requestAdminList").innerHTML = state.requests.map((item) => `
+    <article class="request-admin-card">
+      <div class="request-admin-main"><span class="request-kind">${escapeHtml(item.type)}</span><h3>${escapeHtml(item.title)}${item.year ? ` <small>${escapeHtml(item.year)}</small>` : ""}</h3><p>${escapeHtml(item.notes || "No additional notes.")}</p><small>Requested by ${escapeHtml(item.requested_by || "Anonymous")} · ${new Date(item.created_at).toLocaleString()}</small></div>
+      <label>Status<select data-request-id="${escapeHtml(item.id)}">${statuses.map((status) => `<option value="${status}"${item.status === status ? " selected" : ""}>${status[0].toUpperCase() + status.slice(1)}</option>`).join("")}</select></label>
+    </article>`).join("") || '<div class="empty-state">No requests yet. Viewers can submit one from the media library.</div>';
+}
+
 async function refresh() {
-  const [status, downloads, media] = await Promise.all([api("/api/status"), api("/api/downloads"), api("/api/media")]);
+  const [status, downloads, media, requests] = await Promise.all([api("/api/status"), api("/api/downloads"), api("/api/media"), api("/api/requests")]);
   state.status = status;
   state.downloads = downloads.items || [];
   state.media = media.items || [];
-  renderStatus(); renderDownloads(); renderMedia();
+  state.requests = requests.items || [];
+  renderStatus(); renderDownloads(); renderMedia(); renderRequests();
 }
 
 function toast(message) {
@@ -268,6 +282,15 @@ $("#scheduleForm").addEventListener("submit", saveSchedule);
 [$("#scheduleEnabled"), $("#scheduleStart"), $("#scheduleEnd")].forEach((input) => input.addEventListener("input", () => { state.scheduleDirty = true; }));
 $("#downloadSearch").addEventListener("input", renderDownloads);
 $("#mediaSearch").addEventListener("input", renderMedia);
+$("#requestAdminList").addEventListener("change", async (event) => {
+  const select = event.target.closest("[data-request-id]");
+  if (!select) return;
+  try {
+    await api(`/api/requests/${select.dataset.requestId}/status`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({status: select.value})});
+    toast("Request status updated");
+    await refresh();
+  } catch (error) { toast(error.message); }
+});
 $("#closePlayer").addEventListener("click", () => { $("#videoPlayer").pause(); $("#videoPlayer").removeAttribute("src"); $("#playerDialog").close(); });
 
 applyTheme(document.documentElement.dataset.theme);

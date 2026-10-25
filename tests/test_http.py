@@ -49,6 +49,19 @@ class AdminHttpTests(unittest.TestCase):
         with self.request("/admin") as response:
             self.assertIn(b"SERVER ADMINISTRATION", response.read())
 
+        with self.request(
+            "/api/requests",
+            method="POST",
+            payload={"title": "Arrival", "type": "movie", "year": "2016", "requested_by": "Sam"},
+        ) as response:
+            requested = json.load(response)["request"]
+            self.assertEqual(201, response.status)
+            self.assertEqual("pending", requested["status"])
+
+        with self.assertRaises(urllib.error.HTTPError) as private_queue:
+            self.request("/api/requests")
+        self.assertEqual(401, private_queue.exception.code)
+
         with self.assertRaises(urllib.error.HTTPError) as unauthorized:
             self.request("/api/status")
         self.assertEqual(401, unauthorized.exception.code)
@@ -64,6 +77,18 @@ class AdminHttpTests(unittest.TestCase):
         self.assertTrue(login["must_change_password"])
 
         auth_headers = {"Cookie": cookie, "X-CSRF-Token": login["csrf_token"]}
+        with self.request("/api/requests", headers=auth_headers) as response:
+            requests = json.load(response)["items"]
+        self.assertEqual("Arrival", requests[0]["title"])
+
+        with self.request(
+            f"/api/requests/{requested['id']}/status",
+            method="POST",
+            payload={"status": "approved"},
+            headers=auth_headers,
+        ) as response:
+            self.assertEqual("approved", json.load(response)["request"]["status"])
+
         with self.request(
             "/api/settings/metadata",
             method="POST",
