@@ -45,7 +45,9 @@ class AdminHttpTests(unittest.TestCase):
 
     def test_client_admin_and_password_change_flow(self):
         with self.request("/") as response:
-            self.assertIn(b"Recently added", response.read())
+            client_page = response.read()
+            self.assertIn(b"Recently added", client_page)
+            self.assertNotIn(b'data-library-filter="series"', client_page)
         with self.request("/admin") as response:
             self.assertIn(b"SERVER ADMINISTRATION", response.read())
 
