@@ -13,6 +13,7 @@ client inside the Python process.
 
 - Responsive browser dashboard
 - Media library with direct playback and HTTP byte-range seeking
+- Shareable per-title pages with artwork, plot, cast, ratings, and related media
 - Normal URL, magnet-link, and `.torrent` downloads
 - Pause, resume, and remove download controls
 - Optional overnight download window

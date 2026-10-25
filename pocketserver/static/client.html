@@ -6,11 +6,11 @@
   <meta name="theme-color" content="#090b12" id="clientThemeColor">
   <title>PocketServer · Watch</title>
   <script>try{document.documentElement.dataset.clientTheme=localStorage.getItem("pocket-client-theme")||"light"}catch(e){}</script>
-  <link rel="stylesheet" href="/client.css?v=0.4.2">
+  <link rel="stylesheet" href="/client.css?v=0.5.1">
 </head>
 <body>
   <header class="watch-header">
-    <a class="watch-brand" href="/"><span class="watch-mark">P</span><strong>PocketServer</strong></a>
+    <a class="watch-brand" href="#/"><span class="watch-mark">P</span><strong>PocketServer</strong></a>
     <nav class="watch-nav">
       <button class="active" data-library-filter="all">Home</button>
       <button data-library-filter="movie">Movies</button>
@@ -23,45 +23,62 @@
   </header>
 
   <main class="watch-main">
-    <section class="feature" id="feature">
-      <div class="feature-art" id="featureArt"></div>
-      <div class="feature-shade"></div>
-      <div class="feature-content">
-        <p class="feature-kicker" id="featureKicker">YOUR POCKETSERVER</p>
-        <h1 id="featureTitle">Your media, beautifully organized.</h1>
-        <div class="feature-meta" id="featureMeta"><span>Private</span><span>Fast</span><span>At home</span></div>
-        <p class="feature-plot" id="featurePlot">Add videos to your media folder and PocketServer will make them ready to watch on every device in your home.</p>
-        <div class="feature-actions"><button class="play-action" id="featurePlay">▶ <span>Play</span></button><button class="glass-action" id="featureDetails">ⓘ <span>More info</span></button><button class="circle-action" id="featureList" aria-label="Add to my list">＋</button></div>
-      </div>
-    </section>
-
-    <section class="shelves" id="library">
-      <div class="shelf" id="recentShelf"><div class="shelf-head"><h2><span>✦</span> Recently added</h2><small id="libraryCount"></small></div><div class="poster-row" id="recentRow"><div class="watch-empty">Loading your media…</div></div></div>
-      <div class="shelf" id="movieShelf"><div class="shelf-head"><h2>Movies</h2></div><div class="poster-row" id="movieRow"></div></div>
-      <div class="shelf" id="seriesShelf"><div class="shelf-head"><h2>Series</h2></div><div class="poster-row" id="seriesRow"></div></div>
-      <div class="shelf" id="listShelf"><div class="shelf-head"><h2>My List</h2></div><div class="poster-row" id="listRow"></div></div>
-    </section>
-  </main>
-
-  <dialog class="details-dialog" id="detailsDialog">
-    <article class="details-card">
-      <button class="dialog-close" data-close-details aria-label="Close">×</button>
-      <section class="details-hero">
-        <div class="details-poster" id="detailsPoster"></div>
-        <div class="details-hero-shade"></div>
-        <div class="details-hero-copy">
-          <p class="feature-kicker" id="detailsType"></p>
-          <h2 id="detailsTitle"></h2>
-          <div class="feature-meta" id="detailsMeta"></div>
-          <div class="details-actions"><button class="play-action" id="detailsPlay">▶ <span>Play</span></button><button class="circle-action details-list" id="detailsList" aria-label="Add to My List">＋</button></div>
+    <div id="homeView">
+      <section class="feature" id="feature">
+        <div class="feature-art" id="featureArt"></div>
+        <div class="feature-shade"></div>
+        <div class="feature-content">
+          <p class="feature-kicker" id="featureKicker">YOUR POCKETSERVER</p>
+          <h1 id="featureTitle">Your media, beautifully organized.</h1>
+          <div class="feature-meta" id="featureMeta"><span>Private</span><span>Fast</span><span>At home</span></div>
+          <p class="feature-plot" id="featurePlot">Add videos to your media folder and PocketServer will make them ready to watch on every device in your home.</p>
+          <div class="feature-actions"><button class="play-action" id="featurePlay">▶ <span>Play</span></button><button class="glass-action" id="featureDetails">ⓘ <span>More info</span></button><button class="circle-action" id="featureList" aria-label="Add to my list">＋</button></div>
         </div>
       </section>
-      <section class="details-info">
-        <p class="details-plot" id="detailsPlot"></p>
-        <dl><div><dt>Cast:</dt><dd id="detailsActors"></dd></div><div><dt>Director:</dt><dd id="detailsDirector"></dd></div><div id="detailsImdbRow"><dt>More:</dt><dd><a id="detailsImdb" target="_blank" rel="noreferrer">View on IMDb ↗</a></dd></div></dl>
+
+      <section class="shelves" id="library">
+        <div class="shelf" id="recentShelf"><div class="shelf-head"><h2><span>✦</span> Recently added</h2><small id="libraryCount"></small></div><div class="poster-row" id="recentRow"><div class="watch-empty">Loading your media…</div></div></div>
+        <div class="shelf" id="movieShelf"><div class="shelf-head"><h2>Movies</h2></div><div class="poster-row" id="movieRow"></div></div>
+        <div class="shelf" id="seriesShelf"><div class="shelf-head"><h2>Series</h2></div><div class="poster-row" id="seriesRow"></div></div>
+        <div class="shelf" id="listShelf"><div class="shelf-head"><h2>My List</h2></div><div class="poster-row" id="listRow"></div></div>
       </section>
-    </article>
-  </dialog>
+    </div>
+
+    <section class="title-page" id="titlePage" hidden>
+      <div class="title-backdrop" id="titleBackdrop"></div>
+      <div class="title-wash"></div>
+      <div class="title-hero-layout">
+        <button class="title-back" id="titleBack" type="button">← Back to library</button>
+        <div class="title-poster-large" id="titlePoster"><span id="titlePosterFallback">▶</span></div>
+        <article class="title-copy">
+          <p class="feature-kicker" id="titleType">MEDIA</p>
+          <h1 id="titleName"></h1>
+          <div class="feature-meta title-meta" id="titleMeta"></div>
+          <div class="title-genres" id="titleGenres"></div>
+          <p class="title-summary" id="titleSummary"></p>
+          <div class="title-actions">
+            <button class="play-action" id="titlePlay">▶ <span>Play</span></button>
+            <button class="glass-action" id="titleList">＋ <span>My List</span></button>
+            <a class="glass-action title-imdb" id="titleImdb" target="_blank" rel="noreferrer">IMDb ↗</a>
+          </div>
+        </article>
+      </div>
+      <div class="title-body">
+        <section class="title-about">
+          <div><p class="feature-kicker">STORYLINE</p><h2 id="titleAboutHeading">About this title</h2><p id="titlePlot"></p></div>
+          <dl class="title-facts">
+            <div><dt>Cast</dt><dd id="titleActors"></dd></div>
+            <div><dt>Director</dt><dd id="titleDirector"></dd></div>
+            <div><dt>Available file</dt><dd id="titleFile"></dd></div>
+          </dl>
+        </section>
+        <section class="title-related">
+          <div class="shelf-head"><h2><span>✦</span> More like this</h2></div>
+          <div class="poster-row" id="titleRelated"></div>
+        </section>
+      </div>
+    </section>
+  </main>
 
   <dialog class="player-dialog" id="clientPlayer"><div class="player-wrap"><button class="dialog-close" id="clientPlayerClose" aria-label="Close">×</button><video id="clientVideo" controls playsinline></video><h3 id="clientPlayerTitle"></h3></div></dialog>
 
@@ -81,6 +98,6 @@
   </dialog>
 
   <footer class="watch-footer"><span>PocketServer</span><span>Streamed directly from your own server</span><a href="/admin">Administration</a></footer>
-  <script src="/client.js?v=0.4.2"></script>
+  <script src="/client.js?v=0.5.1"></script>
 </body>
 </html>

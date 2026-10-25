@@ -48,6 +48,8 @@ class AdminHttpTests(unittest.TestCase):
             client_page = response.read()
             self.assertIn(b"Recently added", client_page)
             self.assertNotIn(b'data-library-filter="series"', client_page)
+            self.assertIn(b'id="titlePage"', client_page)
+            self.assertNotIn(b'id="detailsDialog"', client_page)
         with self.request("/admin") as response:
             self.assertIn(b"SERVER ADMINISTRATION", response.read())
 

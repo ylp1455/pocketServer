@@ -3,6 +3,7 @@ const client$ = (selector) => document.querySelector(selector);
 const client$$ = (selector) => [...document.querySelectorAll(selector)];
 const clientEscape = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"})[char]);
 const mediaMetadata = (item) => item?.metadata || {};
+const posterBackground = (value) => value ? `url("${String(value).replace(/["\\]/g, "")}")` : "";
 const cleanFilename = (value) => {
   let title = String(value || "Untitled").replace(/\.[^.]+$/, "");
   const year = title.match(/\b(?:19|20)\d{2}\b/);
@@ -75,35 +76,80 @@ function renderFeature(item) {
   client$("#featurePlot").textContent = metadata.plot || "Ready to stream directly from your PocketServer.";
   const featureBits = [metadata.imdb_rating ? `<span class="rating">${clientEscape(metadata.imdb_rating)}</span>` : "", metadata.year, metadata.runtime, ...(metadata.genres || []).slice(0, 3)].filter(Boolean);
   client$("#featureMeta").innerHTML = featureBits.map((value) => String(value).startsWith("<") ? value : `<span>${clientEscape(value)}</span>`).join("");
-  client$("#featureArt").style.backgroundImage = metadata.poster ? `url("${String(metadata.poster).replace(/["\\]/g, "")}")` : "";
+  client$("#featureArt").style.backgroundImage = posterBackground(metadata.poster);
   client$("#featureList").textContent = clientState.myList.has(item.url) ? "✓" : "＋";
+}
+
+function titleHash(item) {
+  const routeType = mediaType(item) === "series" ? "series" : "movie";
+  const routeId = mediaMetadata(item).imdb_id || encodeURIComponent(item.url);
+  return `#/${routeType}/${routeId}`;
 }
 
 function openDetails(item) {
   if (!item) return;
+  const target = titleHash(item);
+  if (location.hash !== target) location.hash = target;
+  else renderTitlePage(item, true);
+}
+
+function updateTitleListButton(item) {
+  const saved = Boolean(item && clientState.myList.has(item.url));
+  client$("#titleList").innerHTML = saved ? "✓ <span>In My List</span>" : "＋ <span>My List</span>";
+  client$("#titleList").setAttribute("aria-label", saved ? "Remove from My List" : "Add to My List");
+}
+
+function renderTitlePage(item, scrollToTop = false) {
+  if (!item) return;
   clientState.selected = item;
   const metadata = mediaMetadata(item);
-  client$("#detailsType").textContent = metadata.type || "Media";
-  client$("#detailsTitle").textContent = mediaTitle(item);
-  client$("#detailsPlot").textContent = metadata.plot || "No description is available yet. Configure OMDb metadata in the admin dashboard to automatically retrieve title information.";
-  client$("#detailsActors").textContent = (metadata.actors || []).join(", ") || "Not available";
-  client$("#detailsDirector").textContent = metadata.director || "Not available";
-  client$("#detailsMeta").innerHTML = [metadata.imdb_rating ? `<span class="rating">${clientEscape(metadata.imdb_rating)}</span>` : "", metadata.year, metadata.rated, metadata.runtime, ...(metadata.genres || [])].filter(Boolean).map((value) => String(value).startsWith("<") ? value : `<span>${clientEscape(value)}</span>`).join("");
-  client$("#detailsPoster").style.backgroundImage = metadata.poster ? `url("${String(metadata.poster).replace(/["\\]/g, "")}")` : "linear-gradient(145deg,var(--watch-raised),var(--watch-surface))";
-  client$("#detailsDialog .details-card").classList.toggle("no-art", !metadata.poster);
-  const inMyList = clientState.myList.has(item.url);
-  client$("#detailsList").textContent = inMyList ? "✓" : "＋";
-  client$("#detailsList").setAttribute("aria-label", inMyList ? "Remove from My List" : "Add to My List");
-  client$("#detailsList").title = inMyList ? "Remove from My List" : "Add to My List";
-  const imdb = client$("#detailsImdb");
-  client$("#detailsImdbRow").hidden = !metadata.imdb_id;
+  const title = mediaTitle(item);
+  const plot = metadata.plot || "No description is available yet. Configure OMDb metadata in the admin dashboard to retrieve title information automatically.";
+  client$("#homeView").hidden = true;
+  client$("#titlePage").hidden = false;
+  client$("#titleType").textContent = (metadata.type || "Media").toUpperCase();
+  client$("#titleName").textContent = title;
+  client$("#titleMeta").innerHTML = [metadata.year, metadata.runtime, metadata.rated, metadata.imdb_rating ? `<span class="rating">${clientEscape(metadata.imdb_rating)}</span>` : ""].filter(Boolean).map((value) => String(value).startsWith("<") ? value : `<span>${clientEscape(value)}</span>`).join("");
+  client$("#titleGenres").innerHTML = (metadata.genres || []).map((genre) => `<span>${clientEscape(genre)}</span>`).join("");
+  client$("#titleSummary").textContent = plot;
+  client$("#titlePlot").textContent = plot;
+  client$("#titleActors").textContent = (metadata.actors || []).join(", ") || "Not available";
+  client$("#titleDirector").textContent = metadata.director || "Not available";
+  client$("#titleFile").textContent = item.filename || item.name;
+  client$("#titleAboutHeading").textContent = `About ${title}`;
+  client$("#titleBackdrop").style.backgroundImage = posterBackground(metadata.poster);
+  client$("#titlePoster").style.backgroundImage = posterBackground(metadata.poster);
+  client$("#titlePoster").classList.toggle("has-art", Boolean(metadata.poster));
+  updateTitleListButton(item);
+  const imdb = client$("#titleImdb");
+  imdb.hidden = !metadata.imdb_id;
   if (metadata.imdb_id) imdb.href = `https://www.imdb.com/title/${metadata.imdb_id}/`;
-  if (!client$("#detailsDialog").open) client$("#detailsDialog").showModal();
+  const sameType = clientState.media.filter((candidate) => candidate.url !== item.url && mediaType(candidate) === mediaType(item));
+  const related = (sameType.length ? sameType : clientState.media.filter((candidate) => candidate.url !== item.url)).slice(0, 6);
+  renderRow("#titleRelated", related, "Add more media to see related titles here.");
+  client$$('[data-library-filter]').forEach((button) => button.classList.remove("active"));
+  document.title = `${title} · PocketServer`;
+  if (scrollToTop) window.scrollTo({top: 0, behavior: "smooth"});
+}
+
+function renderRoute(scrollToTop = false) {
+  const match = location.hash.match(/^#\/(?:movie|series)\/(.+)$/);
+  if (match) {
+    let id = match[1];
+    try { id = decodeURIComponent(id); } catch (error) {}
+    const item = clientState.media.find((candidate) => mediaMetadata(candidate).imdb_id === id || candidate.url === id);
+    if (item) { renderTitlePage(item, scrollToTop); return; }
+  }
+  clientState.selected = null;
+  client$("#titlePage").hidden = true;
+  client$("#homeView").hidden = false;
+  client$$('[data-library-filter]').forEach((button) => button.classList.toggle("active", button.dataset.libraryFilter === clientState.filter));
+  document.title = "PocketServer · Watch";
+  if (scrollToTop) window.scrollTo({top: 0, behavior: "smooth"});
 }
 
 function playMedia(item) {
   if (!item) return;
-  if (client$("#detailsDialog").open) client$("#detailsDialog").close();
   client$("#clientVideo").src = item.url;
   client$("#clientPlayerTitle").textContent = mediaTitle(item);
   client$("#clientPlayer").showModal();
@@ -115,7 +161,7 @@ function toggleMyList(item) {
   if (clientState.myList.has(item.url)) clientState.myList.delete(item.url); else clientState.myList.add(item.url);
   try { localStorage.setItem("pocket-my-list", JSON.stringify([...clientState.myList])); } catch (error) {}
   renderLibrary(); renderFeature(clientState.featured);
-  if (client$("#detailsDialog").open) openDetails(item);
+  if (!client$("#titlePage").hidden && clientState.selected?.url === item.url) updateTitleListButton(item);
 }
 
 async function submitMediaRequest(event) {
@@ -155,6 +201,7 @@ async function loadClientMedia() {
     renderLibrary();
     const featured = clientState.featured ? clientState.media.find((item) => item.url === clientState.featured.url) : clientState.media.find((item) => item.metadata) || clientState.media[0];
     if (featured) renderFeature(featured);
+    renderRoute(false);
   } catch (error) {
     client$("#recentRow").innerHTML = '<div class="watch-empty">PocketServer is unavailable. Try refreshing this page.</div>';
   }
@@ -164,8 +211,7 @@ document.addEventListener("click", (event) => {
   const card = event.target.closest("[data-media-id]");
   if (card) openDetails(clientState.media.find((item) => item.url === card.dataset.mediaId));
   const filter = event.target.closest("[data-library-filter]");
-  if (filter) { clientState.filter = filter.dataset.libraryFilter; client$$('[data-library-filter]').forEach((button) => button.classList.toggle("active", button === filter)); renderLibrary(); document.querySelector("#library").scrollIntoView({behavior: "smooth"}); }
-  if (event.target.closest("[data-close-details]")) client$("#detailsDialog").close();
+  if (filter) { clientState.filter = filter.dataset.libraryFilter; if (location.hash !== "#/") location.hash = "#/"; else renderRoute(false); client$$('[data-library-filter]').forEach((button) => button.classList.toggle("active", button === filter)); renderLibrary(); setTimeout(() => document.querySelector("#library").scrollIntoView({behavior: "smooth"}), 0); }
   if (event.target.closest("[data-close-request]")) client$("#requestDialog").close();
 });
 client$("#clientSearch").addEventListener("input", renderLibrary);
@@ -175,9 +221,11 @@ client$("#requestForm").addEventListener("submit", submitMediaRequest);
 client$("#featurePlay").addEventListener("click", () => playMedia(clientState.featured));
 client$("#featureDetails").addEventListener("click", () => openDetails(clientState.featured));
 client$("#featureList").addEventListener("click", () => toggleMyList(clientState.featured));
-client$("#detailsPlay").addEventListener("click", () => playMedia(clientState.selected));
-client$("#detailsList").addEventListener("click", () => toggleMyList(clientState.selected));
+client$("#titleBack").addEventListener("click", () => { location.hash = "#/"; });
+client$("#titlePlay").addEventListener("click", () => playMedia(clientState.selected));
+client$("#titleList").addEventListener("click", () => toggleMyList(clientState.selected));
 client$("#clientPlayerClose").addEventListener("click", () => { client$("#clientVideo").pause(); client$("#clientVideo").removeAttribute("src"); client$("#clientPlayer").close(); });
+window.addEventListener("hashchange", () => renderRoute(true));
 
 applyClientTheme(document.documentElement.dataset.clientTheme);
 loadClientMedia();
