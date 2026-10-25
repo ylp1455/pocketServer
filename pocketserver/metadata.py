@@ -44,6 +44,7 @@ class MetadataService:
         self.poster_dir.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
         self._pending: set[str] = set()
+        self._last_error: str | None = None
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="metadata")
         self._cache = self._load_cache()
 
@@ -64,6 +65,7 @@ class MetadataService:
             "configured": bool(self._api_key()),
             "cached_titles": matched,
             "pending": pending,
+            "last_error": self._last_error,
         }
 
     def enrich(self, items: list[dict[str, object]]) -> None:
@@ -86,6 +88,7 @@ class MetadataService:
     def refresh(self) -> None:
         with self._lock:
             self._cache.clear()
+            self._last_error = None
             self._save_cache_locked()
 
     def _schedule(self, key: str, title: str, year: str | None) -> None:
@@ -97,15 +100,17 @@ class MetadataService:
 
     def _fetch_and_store(self, key: str, title: str, year: str | None) -> None:
         try:
-            query = {"apikey": self._api_key(), "t": title, "plot": "full", "r": "json"}
-            if year:
-                query["y"] = year
-            url = "https://www.omdbapi.com/?" + urllib.parse.urlencode(query)
-            request = urllib.request.Request(url, headers={"User-Agent": "PocketServer/0.2"})
-            with urllib.request.urlopen(request, timeout=12) as response:
-                payload = json.load(response)
+            payload = self._request(title, year)
+            if payload.get("Response") != "True" and year and self._is_not_found(payload):
+                payload = self._request(title, None)
             if payload.get("Response") != "True":
-                record: dict[str, Any] = {"not_found": True, "lookup_title": title}
+                message = str(payload.get("Error", "OMDb could not retrieve this title.")).strip()
+                if self._is_not_found(payload):
+                    record: dict[str, Any] = {"not_found": True, "lookup_title": title, "error": message}
+                    self._set_error(f'No OMDb match was found for “{title}”.')
+                else:
+                    self._set_error(message)
+                    return
             else:
                 record = self._normalize(payload)
                 poster = record.get("poster_remote")
@@ -114,15 +119,36 @@ class MetadataService:
                     self._download_poster(str(poster), str(imdb_id))
                     if self.poster_path(str(imdb_id)):
                         record["poster"] = f"/poster/{imdb_id}.jpg"
+                self._set_error(None)
             with self._lock:
                 self._cache[key] = record
                 self._save_cache_locked()
-        except (OSError, urllib.error.URLError, json.JSONDecodeError, ValueError):
+        except (OSError, urllib.error.URLError, json.JSONDecodeError, ValueError) as exc:
             # Network errors are not cached so a later library refresh can retry.
-            pass
+            self._set_error(f"OMDb connection failed: {exc}")
         finally:
             with self._lock:
                 self._pending.discard(key)
+
+    def _request(self, title: str, year: str | None) -> dict[str, Any]:
+        query = {"apikey": self._api_key(), "t": title, "plot": "full", "r": "json"}
+        if year:
+            query["y"] = year
+        url = "https://www.omdbapi.com/?" + urllib.parse.urlencode(query)
+        request = urllib.request.Request(url, headers={"User-Agent": "PocketServer/0.3"})
+        with urllib.request.urlopen(request, timeout=12) as response:
+            payload = json.load(response)
+        if not isinstance(payload, dict):
+            raise ValueError("OMDb returned an invalid response.")
+        return payload
+
+    @staticmethod
+    def _is_not_found(payload: dict[str, Any]) -> bool:
+        return "not found" in str(payload.get("Error", "")).casefold()
+
+    def _set_error(self, message: str | None) -> None:
+        with self._lock:
+            self._last_error = message
 
     @staticmethod
     def _normalize(payload: dict[str, Any]) -> dict[str, Any]:

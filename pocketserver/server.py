@@ -152,9 +152,11 @@ class PocketRequestHandler(BaseHTTPRequestHandler):
                 self._json({"schedule": window, "active_now": self.server_app.aria2.schedule_active_now()})
             elif parsed.path == "/api/settings/metadata":
                 payload = self._json_body()
-                enabled = bool(payload.get("enabled", False))
                 supplied_key = str(payload.get("api_key", "")).strip()
+                enabled = bool(payload.get("enabled", False) or supplied_key)
                 settings = self.server_app.config.setdefault("metadata", {})
+                previous_key = str(settings.get("api_key", ""))
+                previous_enabled = bool(settings.get("enabled", False))
                 if supplied_key:
                     if len(supplied_key) > 128:
                         raise ValueError("The OMDb API key is too long.")
@@ -164,6 +166,10 @@ class PocketRequestHandler(BaseHTTPRequestHandler):
                 settings["enabled"] = enabled
                 settings["provider"] = "omdb"
                 save_config(self.server_app.data_dir, self.server_app.config)
+                if (supplied_key and supplied_key != previous_key) or (enabled and not previous_enabled):
+                    self.server_app.metadata.refresh()
+                if enabled:
+                    self.server_app.metadata.enrich(scan_media(*self.server_app.media_roots))
                 self._json({"metadata": self.server_app.metadata.stats()})
             elif parsed.path == "/api/metadata/refresh":
                 self.server_app.metadata.refresh()

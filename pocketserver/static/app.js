@@ -97,8 +97,10 @@ function renderStatus() {
   const metadata = s.metadata || {};
   $("#metadataEnabled").checked = Boolean(metadata.enabled);
   const metadataStatus = $("#metadataStatus");
-  metadataStatus.classList.toggle("success", Boolean(metadata.enabled && metadata.configured));
-  metadataStatus.textContent = !metadata.configured ? "API key needed" : metadata.enabled ? `${metadata.cached_titles || 0} titles cached` : "Disabled";
+  metadataStatus.classList.toggle("success", Boolean(metadata.enabled && metadata.configured && !metadata.last_error));
+  metadataStatus.classList.toggle("error", Boolean(metadata.last_error));
+  metadataStatus.textContent = metadata.last_error ? "Needs attention" : !metadata.configured ? "API key needed" : metadata.pending ? `Fetching ${metadata.pending}` : metadata.enabled ? `${metadata.cached_titles || 0} titles cached` : "Disabled";
+  $("#metadataError").textContent = metadata.last_error || "";
   $("#systemGrid").innerHTML = `
     <article class="system-card"><h3>Device</h3><div class="info-row"><span>Hostname</span><strong>${escapeHtml(s.hostname)}</strong></div><div class="info-row"><span>Platform</span><strong>${escapeHtml(s.platform)}</strong></div><div class="info-row"><span>Python</span><strong>${escapeHtml(s.python)}</strong></div><div class="info-row"><span>Uptime</span><strong>${duration(s.uptime_seconds)}</strong></div></article>
     <article class="system-card"><h3>Storage</h3><div class="info-row"><span>Total</span><strong>${bytes(s.disk.total)}</strong></div><div class="info-row"><span>Used</span><strong>${bytes(s.disk.used)}</strong></div><div class="info-row"><span>Available</span><strong>${bytes(s.disk.free)}</strong></div></article>
@@ -216,10 +218,11 @@ async function saveMetadata(event) {
   event.preventDefault();
   const error = $("#metadataError"); error.textContent = "";
   try {
+    const apiKey = $("#metadataApiKey").value.trim();
     await api("/api/settings/metadata", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({enabled: $("#metadataEnabled").checked, api_key: $("#metadataApiKey").value.trim()}),
+      body: JSON.stringify({enabled: $("#metadataEnabled").checked || Boolean(apiKey), api_key: apiKey}),
     });
     $("#metadataApiKey").value = "";
     toast("Metadata settings saved");

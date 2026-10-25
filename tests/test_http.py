@@ -67,7 +67,7 @@ class AdminHttpTests(unittest.TestCase):
         with self.request(
             "/api/settings/metadata",
             method="POST",
-            payload={"enabled": True, "api_key": "test-key"},
+            payload={"enabled": False, "api_key": "test-key"},
             headers=auth_headers,
         ) as response:
             metadata = json.load(response)["metadata"]

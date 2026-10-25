@@ -2,6 +2,7 @@ import unittest
 import uuid
 from pathlib import Path
 import shutil
+from unittest.mock import call, patch
 
 from pocketserver.aria2 import Aria2Client
 from pocketserver.auth import SessionStore, new_password_record, verify_password
@@ -103,6 +104,40 @@ class MetadataTests(unittest.TestCase):
         self.assertEqual(["Drama", "Mystery"], value["genres"])
         self.assertEqual(["Actor One", "Actor Two"], value["actors"])
         self.assertEqual("tt1234567", value["imdb_id"])
+
+    def test_lookup_retries_without_year_when_omdb_does_not_find_title(self):
+        folder = Path(__file__).parent / ".tmp" / uuid.uuid4().hex
+        folder.mkdir(parents=True)
+        service = MetadataService(folder, {"metadata": {"enabled": True, "api_key": "test-key"}})
+        try:
+            with patch.object(
+                service,
+                "_request",
+                side_effect=[
+                    {"Response": "False", "Error": "Movie not found!"},
+                    {"Response": "True", "Title": "Masterplan", "Year": "2026", "imdbID": "tt38672588"},
+                ],
+            ) as request:
+                service._fetch_and_store("masterplan|2026", "Masterplan", "2026")
+            self.assertEqual([call("Masterplan", "2026"), call("Masterplan", None)], request.call_args_list)
+            self.assertEqual("Masterplan", service._cache["masterplan|2026"]["title"])
+            self.assertIsNone(service.stats()["last_error"])
+        finally:
+            service.close()
+            shutil.rmtree(folder)
+
+    def test_invalid_api_key_is_reported_without_poisoning_cache(self):
+        folder = Path(__file__).parent / ".tmp" / uuid.uuid4().hex
+        folder.mkdir(parents=True)
+        service = MetadataService(folder, {"metadata": {"enabled": True, "api_key": "bad-key"}})
+        try:
+            with patch.object(service, "_request", return_value={"Response": "False", "Error": "Invalid API key!"}):
+                service._fetch_and_store("example|2025", "Example", "2025")
+            self.assertNotIn("example|2025", service._cache)
+            self.assertEqual("Invalid API key!", service.stats()["last_error"])
+        finally:
+            service.close()
+            shutil.rmtree(folder)
 
 
 if __name__ == "__main__":

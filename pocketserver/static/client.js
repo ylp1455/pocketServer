@@ -28,7 +28,10 @@ function cardMarkup(item) {
   const metadata = mediaMetadata(item);
   const poster = metadata.poster;
   const subtitle = [metadata.year, ...(metadata.genres || []).slice(0, 2)].filter(Boolean).join(" · ") || item.filename.split(".").pop().toUpperCase();
-  return `<button class="watch-card" data-media-id="${clientEscape(item.url)}"><span class="watch-poster"><span class="poster-fallback">▶</span>${poster ? `<img loading="lazy" src="${clientEscape(poster)}" alt="" onerror="this.remove()">` : ""}</span><h3>${clientEscape(mediaTitle(item))}</h3><p>${clientEscape(subtitle)}</p></button>`;
+  const artwork = poster
+    ? `<img loading="lazy" src="${clientEscape(poster)}" alt="${clientEscape(mediaTitle(item))} poster" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="poster-fallback" hidden>▶</span>`
+    : '<span class="poster-fallback">▶</span>';
+  return `<button class="watch-card" data-media-id="${clientEscape(item.url)}"><span class="watch-poster">${artwork}</span><h3>${clientEscape(mediaTitle(item))}</h3><p>${clientEscape(subtitle)}</p></button>`;
 }
 
 function renderRow(selector, items, emptyMessage) {
@@ -86,9 +89,13 @@ function openDetails(item) {
   client$("#detailsDirector").textContent = metadata.director || "Not available";
   client$("#detailsMeta").innerHTML = [metadata.imdb_rating ? `<span class="rating">${clientEscape(metadata.imdb_rating)}</span>` : "", metadata.year, metadata.rated, metadata.runtime, ...(metadata.genres || [])].filter(Boolean).map((value) => String(value).startsWith("<") ? value : `<span>${clientEscape(value)}</span>`).join("");
   client$("#detailsPoster").style.backgroundImage = metadata.poster ? `url("${String(metadata.poster).replace(/["\\]/g, "")}")` : "linear-gradient(145deg,var(--watch-raised),var(--watch-surface))";
-  client$("#detailsList").innerHTML = `${clientState.myList.has(item.url) ? "✓" : "＋"} <span>${clientState.myList.has(item.url) ? "In My List" : "My List"}</span>`;
+  client$("#detailsDialog .details-card").classList.toggle("no-art", !metadata.poster);
+  const inMyList = clientState.myList.has(item.url);
+  client$("#detailsList").textContent = inMyList ? "✓" : "＋";
+  client$("#detailsList").setAttribute("aria-label", inMyList ? "Remove from My List" : "Add to My List");
+  client$("#detailsList").title = inMyList ? "Remove from My List" : "Add to My List";
   const imdb = client$("#detailsImdb");
-  imdb.hidden = !metadata.imdb_id;
+  client$("#detailsImdbRow").hidden = !metadata.imdb_id;
   if (metadata.imdb_id) imdb.href = `https://www.imdb.com/title/${metadata.imdb_id}/`;
   if (!client$("#detailsDialog").open) client$("#detailsDialog").showModal();
 }
