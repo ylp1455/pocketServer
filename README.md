@@ -77,6 +77,40 @@ python -m pocketserver --no-open
 python -m pocketserver --help
 ```
 
+## Automatic weekly Android updates
+
+Automatic updates should run from a Git checkout in Termux, not from the copy
+in shared Android storage. The media, downloads, password, and configuration
+remain in the separate shared `PocketServer` data folder.
+
+One-time setup:
+
+```sh
+cd ~
+git clone https://github.com/ylp1455/pocketServer.git pocketserver-app
+cd ~/pocketserver-app
+bash scripts/start-termux-auto.sh
+```
+
+The managed launcher checks `origin/main` at startup and every seven days while
+PocketServer is running. It accepts only a clean, fast-forward update. Network
+failures or local source changes leave the installed version running. When a
+new commit is installed, PocketServer restarts automatically while continuing
+to use the same shared data directory.
+
+For automatic startup after a phone restart, install **Termux:Boot** from
+F-Droid, open it once, and then run:
+
+```sh
+cd ~/pocketserver-app
+bash scripts/enable-termux-boot.sh
+```
+
+The boot log is stored at `~/pocketserver-auto.log`. Disable Android battery
+optimization for both Termux and Termux:Boot. Automatic updates trust code
+pushed to the configured GitHub branch, so protect the GitHub account with a
+strong password and two-factor authentication.
+
 ## Configuration
 
 The first run creates `config.json` inside the PocketServer data directory.
