@@ -7,6 +7,7 @@ import urllib.request
 import uuid
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
 
 from pocketserver.auth import verify_password
 from pocketserver.server import PocketRequestHandler, PocketServer
@@ -51,7 +52,9 @@ class AdminHttpTests(unittest.TestCase):
             self.assertIn(b'id="titlePage"', client_page)
             self.assertNotIn(b'id="detailsDialog"', client_page)
         with self.request("/admin") as response:
-            self.assertIn(b"SERVER ADMINISTRATION", response.read())
+            admin_page = response.read()
+            self.assertIn(b"SERVER ADMINISTRATION", admin_page)
+            self.assertIn(b'id="ytsSearchForm"', admin_page)
 
         with self.request(
             "/api/requests",
@@ -81,6 +84,27 @@ class AdminHttpTests(unittest.TestCase):
         self.assertTrue(login["must_change_password"])
 
         auth_headers = {"Cookie": cookie, "X-CSRF-Token": login["csrf_token"]}
+        with self.assertRaises(urllib.error.HTTPError) as private_yts:
+            self.request("/api/yts/search?q=matrix")
+        self.assertEqual(401, private_yts.exception.code)
+
+        with patch.object(
+            self.app.yts,
+            "search",
+            return_value=[{"title": "The Matrix", "path": "/movie/the-matrix-1999"}],
+        ):
+            with self.request("/api/yts/search?q=matrix", headers=auth_headers) as response:
+                self.assertEqual("The Matrix", json.load(response)["items"][0]["title"])
+        with patch.object(
+            self.app.yts,
+            "torrents",
+            return_value=[{"label": "1080p", "magnet": "magnet:?xt=urn:btih:test"}],
+        ):
+            with self.request(
+                "/api/yts/torrents?path=%2Fmovie%2Fthe-matrix-1999", headers=auth_headers
+            ) as response:
+                self.assertEqual("1080p", json.load(response)["items"][0]["label"])
+
         with self.request("/api/requests", headers=auth_headers) as response:
             requests = json.load(response)["items"]
         self.assertEqual("Arrival", requests[0]["title"])

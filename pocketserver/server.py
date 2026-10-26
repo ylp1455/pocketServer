@@ -25,6 +25,7 @@ from .config import load_config, save_config
 from .media import chunks, safe_media_path, scan_media
 from .metadata import MetadataService, SAFE_IMDB_ID
 from .requests import MediaRequestStore
+from .yts import YtsClient, YtsError
 
 
 class PocketServer:
@@ -39,6 +40,7 @@ class PocketServer:
         self.aria2 = Aria2Client(self.data_dir, self.config)
         self.metadata = MetadataService(self.data_dir, self.config)
         self.requests = MediaRequestStore(self.data_dir)
+        self.yts = YtsClient()
         self.sessions = SessionStore()
         self.static_dir = Path(__file__).with_name("static")
         self.httpd: ThreadingHTTPServer | None = None
@@ -92,6 +94,26 @@ class PocketRequestHandler(BaseHTTPRequestHandler):
             if not self._require_admin():
                 return
             self._downloads()
+        elif parsed.path == "/api/yts/search":
+            if not self._require_admin():
+                return
+            query = urllib.parse.parse_qs(parsed.query).get("q", [""])[0]
+            try:
+                self._json({"items": self.server_app.yts.search(query)})
+            except ValueError as exc:
+                self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            except YtsError as exc:
+                self._json({"error": str(exc)}, HTTPStatus.BAD_GATEWAY)
+        elif parsed.path == "/api/yts/torrents":
+            if not self._require_admin():
+                return
+            movie_path = urllib.parse.parse_qs(parsed.query).get("path", [""])[0]
+            try:
+                self._json({"items": self.server_app.yts.torrents(movie_path)})
+            except ValueError as exc:
+                self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            except YtsError as exc:
+                self._json({"error": str(exc)}, HTTPStatus.BAD_GATEWAY)
         elif parsed.path == "/api/requests":
             if not self._require_admin():
                 return

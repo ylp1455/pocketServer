@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f4f7fb" id="themeColor">
   <title>PocketServer</title>
   <script>try{document.documentElement.dataset.theme=localStorage.getItem("pocket-theme")||"light"}catch(e){}</script>
-  <link rel="stylesheet" href="/styles.css?v=0.4.1">
+  <link rel="stylesheet" href="/styles.css?v=0.6.0">
 </head>
 <body>
   <section class="auth-screen" id="loginScreen">
@@ -77,6 +77,19 @@
       <section class="view" id="view-downloads">
         <div class="toolbar"><div><p class="eyebrow">ARIA2 DOWNLOAD ENGINE</p><h2>Downloads</h2></div><button class="primary" id="openAdd">＋ Add</button></div>
         <div class="notice hidden" id="ariaNotice">aria2c is not installed. Install aria2, then restart PocketServer to enable downloads.</div>
+        <article class="panel yts-panel">
+          <div class="yts-intro">
+            <div><p class="eyebrow">YTS / YIFY SEARCH</p><h3>Find a movie</h3><p>Search, choose a quality, and add its magnet link without downloading a .torrent file manually.</p></div>
+            <span class="pill">ADMIN ONLY</span>
+          </div>
+          <form class="yts-search" id="ytsSearchForm">
+            <input class="search" id="ytsQuery" type="search" minlength="2" maxlength="80" placeholder="Search for a movie…" required>
+            <button class="primary" type="submit">Search YTS</button>
+          </form>
+          <p class="yts-legal">Only download media you are authorized to access.</p>
+          <div class="yts-status" id="ytsStatus">Search results will appear here.</div>
+          <div class="yts-results" id="ytsResults"></div>
+        </article>
         <article class="panel schedule-panel">
           <div class="schedule-copy">
             <div class="schedule-title"><span class="schedule-icon">◷</span><div><h3>Download schedule</h3><p>Only download during this time using the server device's local clock.</p></div></div>
@@ -144,6 +157,6 @@
   </dialog>
 
   <div class="toast" id="toast"></div>
-  <script src="/app.js?v=0.4.1"></script>
+  <script src="/app.js?v=0.6.0"></script>
 </body>
 </html>

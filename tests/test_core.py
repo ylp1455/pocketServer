@@ -10,6 +10,7 @@ from pocketserver.config import load_config
 from pocketserver.media import safe_media_path, scan_media
 from pocketserver.metadata import MetadataService, title_from_filename
 from pocketserver.requests import MediaRequestStore
+from pocketserver.yts import YtsClient, YtsError
 
 
 class ConfigTests(unittest.TestCase):
@@ -168,6 +169,49 @@ class MetadataTests(unittest.TestCase):
             service.close()
             shutil.rmtree(folder)
 
+
+class YtsTests(unittest.TestCase):
+    SEARCH_HTML = """
+    <main>
+      <a href="https://yts.example/movie/the-matrix-1999" title="The Matrix">
+        <img src="/uploads/matrix.webp"><span>8.7 / 10</span><strong>1999</strong>
+        <span>720p</span><span>1080p x265</span>
+      </a>
+      <a href="/movie/the-matrix-1999" title="The Matrix">duplicate</a>
+      <a href="https://example.com/not-a-movie" title="Ignore me">Bad</a>
+    </main>
+    """
+    DETAIL_HTML = """
+    <div><a href="#">720p web</a><a href="magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&amp;dn=Matrix">Magnet</a></div>
+    <div><a href="#">1080p web x265</a><a href="magnet:?xt=urn:btih:abcdef0123456789abcdef0123456789abcdef01&amp;dn=Matrix">Magnet</a></div>
+    <a href="magnet:?xt=urn:btih:not-valid">Ignore invalid magnet</a>
+    """
+
+    def test_search_and_torrent_pages_are_normalized(self):
+        client = YtsClient("https://yts.example")
+        with patch.object(client, "_fetch", return_value=self.SEARCH_HTML):
+            items = client.search("matrix")
+        self.assertEqual(1, len(items))
+        self.assertEqual("The Matrix", items[0]["title"])
+        self.assertEqual("1999", items[0]["year"])
+        self.assertEqual("8.7", items[0]["rating"])
+        self.assertEqual("https://yts.example/uploads/matrix.webp", items[0]["poster"])
+        self.assertEqual(["720p", "1080p x265"], items[0]["qualities"])
+
+        with patch.object(client, "_fetch", return_value=self.DETAIL_HTML):
+            torrents = client.torrents("/movie/the-matrix-1999")
+        self.assertEqual(["720p web", "1080p web x265"], [item["label"] for item in torrents])
+        self.assertTrue(all(item["magnet"].startswith("magnet:?xt=urn:btih:") for item in torrents))
+
+    def test_rejects_invalid_searches_paths_and_empty_results(self):
+        client = YtsClient("https://yts.example")
+        with self.assertRaises(ValueError):
+            client.search("x")
+        with self.assertRaises(ValueError):
+            client.torrents("https://evil.example/movie/title")
+        with patch.object(client, "_fetch", return_value="<html></html>"):
+            with self.assertRaises(YtsError):
+                client.torrents("/movie/title")
 
 if __name__ == "__main__":
     unittest.main()

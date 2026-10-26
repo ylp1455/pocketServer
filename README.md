@@ -15,6 +15,7 @@ client inside the Python process.
 - Media library with direct playback and HTTP byte-range seeking
 - Shareable per-title pages with artwork, plot, cast, ratings, and related media
 - Normal URL, magnet-link, and `.torrent` downloads
+- Admin-only YTS/YIFY movie search with one-click quality selection
 - Pause, resume, and remove download controls
 - Optional overnight download window
 - Live storage, memory, uptime, and download-speed status
@@ -113,6 +114,24 @@ directly to the public internet. Administration requires authentication, but
 media playback is intentionally available to other devices on the same LAN.
 
 Only download or share content when you have permission to do so.
+
+### Search YTS from the dashboard
+
+Open **Admin → Downloads**, enter a movie name in **Find a movie**, and select
+**Choose quality** on a result. PocketServer retrieves the available magnet
+links and sends the selected quality directly to aria2. The normal download
+schedule still applies, so an item added outside the configured window remains
+paused until the window opens.
+
+The provider integration is isolated from the download engine because public
+YTS mirrors can change. To use a compatible mirror, set its base URL before
+starting PocketServer:
+
+```sh
+POCKETSERVER_YTS_BASE_URL=https://example.invalid python -m pocketserver
+```
+
+Search and quality lookup require an authenticated administrator session.
 
 ## Scheduling downloads
 

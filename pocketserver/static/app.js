@@ -1,4 +1,4 @@
-const state = { status: null, downloads: [], media: [], requests: [], scheduleDirty: false, authenticated: false, csrfToken: "" };
+const state = { status: null, downloads: [], media: [], requests: [], ytsResults: [], scheduleDirty: false, authenticated: false, csrfToken: "" };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
@@ -64,6 +64,7 @@ function showView(name) {
   $("#pageEyebrow").textContent = titles[name][0];
   $("#pageTitle").textContent = titles[name][1];
   $("#sidebar").classList.remove("open");
+  if (location.hash !== `#${name}`) history.replaceState(null, "", `#${name}`);
 }
 
 function renderStatus() {
@@ -126,6 +127,74 @@ function renderDownloads() {
   $("#downloadList").innerHTML = html || '<div class="empty-state">No downloads in the queue.</div>';
   const recent = state.downloads.slice(0, 4);
   $("#recentDownloads").innerHTML = recent.length ? recent.map((item) => `<div class="download-row" style="grid-template-columns:1fr 85px"><div class="download-name"><strong>${escapeHtml(item.name)}</strong><span>${item.progress}% · ${bytes(item.total)}</span></div><span class="state ${item.status}">${item.status}</span></div>`).join("") : "No downloads yet.";
+}
+
+function renderYtsResults() {
+  const results = state.ytsResults;
+  $("#ytsStatus").textContent = results.length ? `${results.length} result${results.length === 1 ? "" : "s"}` : "No matching movies found.";
+  $("#ytsResults").innerHTML = results.map((item, index) => `
+    <article class="yts-card">
+      <div class="yts-poster">${item.poster ? `<img src="${escapeHtml(item.poster)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : "<span>▶</span>"}</div>
+      <div class="yts-card-copy">
+        <h4>${escapeHtml(item.title)}</h4>
+        <p>${[item.year, item.rating ? `★ ${item.rating}` : ""].filter(Boolean).map(escapeHtml).join(" · ") || "Movie"}</p>
+        <div class="quality-list">${(item.qualities || []).map((quality) => `<span>${escapeHtml(quality)}</span>`).join("")}</div>
+        <button class="secondary compact yts-choose" type="button" data-yts-index="${index}">Choose quality</button>
+        <div class="torrent-options" id="ytsOptions-${index}"></div>
+      </div>
+    </article>`).join("");
+}
+
+async function searchYts(event) {
+  event.preventDefault();
+  const query = $("#ytsQuery").value.trim();
+  $("#ytsStatus").textContent = "Searching YTS…";
+  $("#ytsResults").innerHTML = "";
+  try {
+    const response = await api(`/api/yts/search?q=${encodeURIComponent(query)}`);
+    state.ytsResults = response.items || [];
+    renderYtsResults();
+  } catch (error) {
+    state.ytsResults = [];
+    $("#ytsStatus").textContent = error.message;
+  }
+}
+
+async function loadYtsTorrents(button) {
+  const index = Number(button.dataset.ytsIndex);
+  const item = state.ytsResults[index];
+  const options = $(`#ytsOptions-${index}`);
+  if (!item || !options) return;
+  button.disabled = true;
+  button.textContent = "Loading…";
+  options.innerHTML = "";
+  try {
+    const response = await api(`/api/yts/torrents?path=${encodeURIComponent(item.path)}`);
+    options.innerHTML = (response.items || []).map((torrent) => `<button type="button" class="torrent-button" data-yts-magnet="${escapeHtml(torrent.magnet)}">Download ${escapeHtml(torrent.label)}</button>`).join("");
+    button.textContent = "Hide qualities";
+    button.disabled = false;
+    button.dataset.loaded = "true";
+  } catch (error) {
+    options.innerHTML = `<p class="form-error">${escapeHtml(error.message)}</p>`;
+    button.textContent = "Try again";
+    button.disabled = false;
+  }
+}
+
+async function addYtsDownload(button) {
+  button.disabled = true;
+  const previous = button.textContent;
+  button.textContent = "Adding…";
+  try {
+    await api("/api/downloads/uri", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({uri: button.dataset.ytsMagnet})});
+    toast("Movie added to the download queue");
+    button.textContent = "Added ✓";
+    await refresh();
+  } catch (error) {
+    toast(error.message);
+    button.disabled = false;
+    button.textContent = previous;
+  }
 }
 
 function renderMedia() {
@@ -257,6 +326,8 @@ async function initialize() {
     const session = await api("/api/auth/session");
     if (!session.authenticated) { showLogin(); return; }
     showAdmin(session);
+    const requestedView = location.hash.slice(1);
+    if (["overview", "media", "downloads", "requests", "system"].includes(requestedView)) showView(requestedView);
     await refresh();
   } catch (e) { showLogin("Could not connect to PocketServer."); }
 }
@@ -268,6 +339,16 @@ document.addEventListener("click", async (event) => {
   if (action) { try { await api(`/api/downloads/${action.dataset.gid}/${action.dataset.action}`, {method: "POST"}); await refresh(); } catch (e) { toast(e.message); } }
   const media = event.target.closest("[data-media-url]");
   if (media) { $("#videoPlayer").src = media.dataset.mediaUrl; $("#playerTitle").textContent = media.dataset.mediaName; $("#playerDialog").showModal(); }
+  const ytsChoice = event.target.closest("[data-yts-index]");
+  if (ytsChoice) {
+    const options = $(`#ytsOptions-${ytsChoice.dataset.ytsIndex}`);
+    if (ytsChoice.dataset.loaded === "true") {
+      const hidden = options.classList.toggle("hidden");
+      ytsChoice.textContent = hidden ? "Show qualities" : "Hide qualities";
+    } else await loadYtsTorrents(ytsChoice);
+  }
+  const ytsMagnet = event.target.closest("[data-yts-magnet]");
+  if (ytsMagnet) await addYtsDownload(ytsMagnet);
 });
 $("#menuButton").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
 $("#themeToggle").addEventListener("click", () => applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light"));
@@ -279,6 +360,7 @@ $("#refreshMetadata").addEventListener("click", refreshAllMetadata);
 $("#openAdd").addEventListener("click", () => $("#addDialog").showModal());
 $("#submitDownload").addEventListener("click", addDownload);
 $("#scheduleForm").addEventListener("submit", saveSchedule);
+$("#ytsSearchForm").addEventListener("submit", searchYts);
 [$("#scheduleEnabled"), $("#scheduleStart"), $("#scheduleEnd")].forEach((input) => input.addEventListener("input", () => { state.scheduleDirty = true; }));
 $("#downloadSearch").addEventListener("input", renderDownloads);
 $("#mediaSearch").addEventListener("input", renderMedia);
